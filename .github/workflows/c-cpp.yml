@@ -18,16 +18,20 @@ jobs:
       - name: Build (make)
         run: make
 
-      - name: Archive binary
+      - name: Préparer le binaire
         run: |
           mkdir -p dist
           cp js5 dist/
 
-      - name: Create Release
+      - name: Générer un tag unique
+        id: prep
+        run: echo "TAG=v$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_ENV
+
+      - name: Créer la release GitHub
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.sha }}
-          name: Release ${{ github.sha }}
+          tag_name: ${{ env.TAG }}
+          name: Release ${{ env.TAG }}
           files: dist/js5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
