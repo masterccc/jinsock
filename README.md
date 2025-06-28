@@ -27,12 +27,16 @@ gcc -o socket_injector socket_injector.c
 
 ## Usage
 
-Run the program as root:
+Run the program as root :
 
+Interactive CLI : 
 ```bash
 sudo ./socket_injector
 ```
-
+Non-interactive mode :
+```bash
+sudo ./socket_injector --pid 3458 -f 4 --send Hello_World
+```
 ### Commands
 
 * `help`
@@ -62,7 +66,24 @@ sudo ./socket_injector
   Exit the program.
 
 ### Example session
+Help :
+```bash
+# ./js5 --help
+Usage:
+  program [options]
+Options:
+  -p, --pid PID           Specify PID
+  -s, --socket FD         Specify socket fd
+  -S, --send STRING       Send string to socket
+  -F, --sendf FILE        Send file content to socket
+  -r, --rec [FILE]        Receive from socket, output to stdout or FILE if specified
+  search [pattern]        Search sockets optionally filtering by pattern
+  -h, --help              Show this help
 
+If no arguments are provided, starts interactive shell.
+
+```
+Run :
 ```
 > search ssh
 Found 2 socket(s):
@@ -88,16 +109,3 @@ Bye.
 * The program duplicates the file descriptor using Linux `pidfd_getfd` syscall to reuse the same socket.
 * Receiving data uses `select()` with a configurable timeout to wait for incoming data.
 * Tested on Linux kernel 5.6+.
-
-## License
-
-MIT License
-
----
-
-Feel free to contribute or report issues.
-
-```
-
-Let me know if you want me to add anything else!
-```
