@@ -21,13 +21,13 @@ jobs:
       - name: Archive binary
         run: |
           mkdir -p dist
-          cp jinsock dist/
+          cp js5 dist/
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.sha }}
           name: Release ${{ github.sha }}
-          files: dist/jinsock
+          files: dist/js5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
