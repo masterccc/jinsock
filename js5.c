@@ -5,18 +5,19 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <fcntl.h>
+#include <errno.h>
+#include <ctype.h>
+#include <getopt.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/select.h>
 #include <sys/stat.h>
-#include <arpa/inet.h>
-#include <errno.h>
-#include <ctype.h>
-#include <netinet/in.h>
-#include <linux/net.h>
 #include <sys/syscall.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
 #include <linux/limits.h>
-#include <getopt.h>  // ajouter en haut du fichier
+#include <linux/net.h>
+
 
 #ifndef __NR_pidfd_open
 #define __NR_pidfd_open 434
@@ -75,7 +76,7 @@ int parse_ip_port(const char *hexipport, char *ipbuf, size_t ipbuflen, int *port
     if (strlen(hexipport) < 13) return -1;
     char ip_hex[9] = {0};
     strncpy(ip_hex, hexipport, 8);
-    sscanf(hexipport, "%8X:%X", &p, &p); // dummy read to satisfy sscanf?
+    sscanf(hexipport, "%8X:%X", &p, &p);
     if (sscanf(hexipport, "%8X:%X", &p, &p) != 2) return -1;
 
     // Parse IP and port:
@@ -507,7 +508,6 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // Mode interactif actuel
     char line[1024];
     printf("Socket Injector Shell. Type 'help' for commands.\n");
     while (1) {
