@@ -4,6 +4,9 @@ on:
   push:
     branches: [ "main" ]
 
+permissions:
+  contents: write
+
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
@@ -18,20 +21,13 @@ jobs:
       - name: Archive binary
         run: |
           mkdir -p dist
-          cp js5 dist/
+          cp jinsock dist/
 
       - name: Create Release
-        id: create_release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.sha }}
           name: Release ${{ github.sha }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload binary to release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/js5
+          files: dist/jinsock
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
