@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall
 TARGET = js5
-SRC = js.c
+SRC = js5.c
 
 all: $(TARGET)
 
