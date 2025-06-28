@@ -32,7 +32,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.TAG }}
-          name: Release jinsock_v${{ env.TAG }}
+          name: Release jinsock_${{ env.TAG }}
           files: dist/js5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
