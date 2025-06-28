@@ -21,6 +21,7 @@ jobs:
       - name: Préparer le binaire
         run: |
           mkdir -p dist
+          strip js5
           cp js5 dist/
 
       - name: Générer un tag unique
@@ -31,7 +32,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.TAG }}
-          name: Release ${{ env.TAG }}
+          name: Release jinsock_v${{ env.TAG }}
           files: dist/js5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
