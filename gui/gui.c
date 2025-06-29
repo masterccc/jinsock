@@ -8,7 +8,7 @@ typedef struct {
     GtkWidget *progress_bar;
     GtkTreeModel *base_model;
     GtkTreeModelFilter *filter;
-    char *filter_query;  // Stocke la chaîne de recherche en minuscules
+    char *filter_query;
 } AppWidgets;
 
 GtkTreeModel* create_base_model() {
@@ -135,26 +135,27 @@ static void activate(GtkApplication *app, gpointer user_data) {
     gtk_window_set_title(GTK_WINDOW(window), "Interface GTK 4");
     gtk_window_set_default_size(GTK_WINDOW(window), 800, 600);
 
-    GtkWidget *main_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
+    // Premiers paned imbriqués pour les 3 zones verticales redimensionnables
+    GtkWidget *paned1 = gtk_paned_new(GTK_ORIENTATION_VERTICAL);
+    GtkWidget *paned2 = gtk_paned_new(GTK_ORIENTATION_VERTICAL);
 
-    // Marges tout autour
-    gtk_widget_set_margin_top(main_box, 5);
-    gtk_widget_set_margin_bottom(main_box, 5);
-    gtk_widget_set_margin_start(main_box, 5);
-    gtk_widget_set_margin_end(main_box, 5);
+    // Marges autour du paned1 (fenêtre)
+    gtk_widget_set_margin_top(paned1, 5);
+    gtk_widget_set_margin_bottom(paned1, 5);
+    gtk_widget_set_margin_start(paned1, 5);
+    gtk_widget_set_margin_end(paned1, 5);
 
-    gtk_window_set_child(GTK_WINDOW(window), main_box);
+    gtk_window_set_child(GTK_WINDOW(window), paned1);
 
-    // Titre "Socket list"
+    // Partie haute : titre + filtre + tableau
+    GtkWidget *top_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
+
     GtkWidget *label_sockets = gtk_label_new("<b>Socket list</b>");
     gtk_label_set_use_markup(GTK_LABEL(label_sockets), TRUE);
     gtk_label_set_xalign(GTK_LABEL(label_sockets), 0.0);
-    gtk_box_append(GTK_BOX(main_box), label_sockets);
+    gtk_box_append(GTK_BOX(top_box), label_sockets);
 
-    // Haut : filtre + tableau
-    GtkWidget *top_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
-
-    GtkWidget *filter_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+    GtkWidget *filter_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
     widgets->entry_filter = gtk_entry_new();
     GtkWidget *filter_button = gtk_button_new_with_label("Refresh");
     gtk_box_append(GTK_BOX(filter_box), widgets->entry_filter);
@@ -183,40 +184,40 @@ static void activate(GtkApplication *app, gpointer user_data) {
     gtk_widget_set_vexpand(table_scroll, TRUE);
     gtk_box_append(GTK_BOX(top_box), table_scroll);
 
-    gtk_box_append(GTK_BOX(main_box), top_box);
+    // Ajouter top_box dans paned1, côté supérieur
+    gtk_paned_set_start_child(GTK_PANED(paned1), top_box);
 
-    // Titre "Incoming packets"
+    // Partie milieu : titre + liste dépliable
+    GtkWidget *middle_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
+
     GtkWidget *label_packets = gtk_label_new("<b>Incoming packets</b>");
     gtk_label_set_use_markup(GTK_LABEL(label_packets), TRUE);
     gtk_label_set_xalign(GTK_LABEL(label_packets), 0.0);
-    gtk_box_append(GTK_BOX(main_box), label_packets);
+    gtk_box_append(GTK_BOX(middle_box), label_packets);
 
-    // Milieu : liste dépliable
     GtkWidget *middle = create_foldable_list();
-    gtk_box_append(GTK_BOX(main_box), middle);
+    gtk_box_append(GTK_BOX(middle_box), middle);
 
-    // Titre "Send data"
+    // Partie basse : titre + champ + bouton + label statut
+    GtkWidget *bottom_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
+
     GtkWidget *label_send = gtk_label_new("<b>Send data</b>");
     gtk_label_set_use_markup(GTK_LABEL(label_send), TRUE);
     gtk_label_set_xalign(GTK_LABEL(label_send), 0.0);
-    gtk_box_append(GTK_BOX(main_box), label_send);
+    gtk_box_append(GTK_BOX(bottom_box), label_send);
 
-    // Bas : envoi
-    GtkWidget *bottom_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+    GtkWidget *bottom_controls = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
     widgets->info_label = gtk_label_new("Aucune sélection");
     GtkWidget *file_button = gtk_button_new_with_label("Choisir un fichier");
     GtkWidget *text_entry = gtk_entry_new();
     GtkWidget *send_button = gtk_button_new_with_label("Envoyer");
-
     gtk_widget_set_hexpand(text_entry, TRUE);
 
-    gtk_box_append(GTK_BOX(bottom_box), widgets->info_label);
-    gtk_box_append(GTK_BOX(bottom_box), file_button);
-    gtk_box_append(GTK_BOX(bottom_box), text_entry);
-    gtk_box_append(GTK_BOX(bottom_box), send_button);
-    gtk_box_append(GTK_BOX(main_box), bottom_box);
-
-    g_signal_connect(send_button, "clicked", G_CALLBACK(on_send_clicked), widgets);
+    gtk_box_append(GTK_BOX(bottom_controls), widgets->info_label);
+    gtk_box_append(GTK_BOX(bottom_controls), file_button);
+    gtk_box_append(GTK_BOX(bottom_controls), text_entry);
+    gtk_box_append(GTK_BOX(bottom_controls), send_button);
+    gtk_box_append(GTK_BOX(bottom_box), bottom_controls);
 
     // Statut en bas
     GtkWidget *status_bar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
@@ -229,11 +230,22 @@ static void activate(GtkApplication *app, gpointer user_data) {
     gtk_box_append(GTK_BOX(status_bar), widgets->status_label);
     gtk_box_append(GTK_BOX(status_bar), widgets->progress_bar);
 
-    gtk_box_append(GTK_BOX(main_box), status_bar);
+    gtk_box_append(GTK_BOX(bottom_box), status_bar);
+
+    g_signal_connect(send_button, "clicked", G_CALLBACK(on_send_clicked), widgets);
+
+    // Mettre middle_box et bottom_box dans paned2
+    gtk_paned_set_start_child(GTK_PANED(paned2), middle_box);
+    gtk_paned_set_end_child(GTK_PANED(paned2), bottom_box);
+
+    // Mettre paned2 dans paned1 (partie inférieure)
+    gtk_paned_set_end_child(GTK_PANED(paned1), paned2);
 
     GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(widgets->treeview));
     g_signal_connect(selection, "changed", G_CALLBACK(on_row_selected), widgets);
 
+    gtk_paned_set_position(GTK_PANED(paned1), 300);
+    gtk_paned_set_position(GTK_PANED(paned2), 150);
     gtk_window_present(GTK_WINDOW(window));
 }
 
