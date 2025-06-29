@@ -1,4 +1,4 @@
-#define _GNU_SOURCE
+#include "jinsock.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,17 +7,15 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <ctype.h>
-#include <getopt.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/select.h>
+#include <linux/limits.h>
+#include <linux/net.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
-#include <linux/limits.h>
-#include <linux/net.h>
-
 
 #ifndef __NR_pidfd_open
 #define __NR_pidfd_open 434
@@ -27,29 +25,9 @@
 #define __NR_pidfd_getfd 438
 #endif
 
-static int recv_timeout_sec = 5;
-
-int pidfd_open(pid_t pid, unsigned int flags) {
-    return syscall(__NR_pidfd_open, pid, flags);
-}
-
-int pidfd_getfd(int pidfd, int targetfd, unsigned int flags) {
-    return syscall(__NR_pidfd_getfd, pidfd, targetfd, flags);
-}
-
-typedef struct {
-    pid_t pid;
-    int fd;
-    char proc_name[256];
-    char local_addr[64];
-    char rem_addr[64];
-    int rem_port;
-} SocketEntry;
-
-#define MAX_ENTRIES 1024
 SocketEntry entries[MAX_ENTRIES];
 int entry_count = 0;
-int selected_fd = -1;
+
 
 void trim_newline(char *s) {
     size_t len = strlen(s);
@@ -72,7 +50,7 @@ void cmd_help() {
 
 int parse_ip_port(const char *hexipport, char *ipbuf, size_t ipbuflen, int *port) {
     // hexipport format: "0100007F:1F90" (IP:port in hex)
-    unsigned int ip1, ip2, ip3, ip4, p;
+    unsigned int p;
     if (strlen(hexipport) < 13) return -1;
     char ip_hex[9] = {0};
     strncpy(ip_hex, hexipport, 8);
@@ -160,7 +138,6 @@ int get_remote_addr_from_inode(pid_t pid, unsigned long long inode, char *ipbuf,
         unsigned int sl;
         char local_addr[64], rem_addr[64], st[8], tx_queue[16], rx_queue[16], tr[8], tm_when[16], retrnsmt[16];
         unsigned long long local_inode;
-        int d;
         // Format from /proc/net/tcp:
         // sl  local_address rem_address st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode
         // We only need rem_address, inode
@@ -405,190 +382,5 @@ void print_usage() {
         "program"
     );
 }
-
-int main(int argc, char *argv[]) {
-    if (argc > 1) {
-        // Gestion mode ligne de commande
-        static struct option long_options[] = {
-            {"pid", required_argument, 0, 'p'},
-            {"socket", required_argument, 0, 's'},
-            {"send", required_argument, 0, 'S'},
-            {"sendf", required_argument, 0, 'F'},
-            {"rec", optional_argument, 0, 'r'},
-            {"help", no_argument, 0, 'h'},
-            {0,0,0,0}
-        };
-
-        pid_t pid = -1;
-        int sockfd = -1;
-        char *send_str = NULL;
-        char *sendf_file = NULL;
-        char *rec_file = NULL;
-        int opt;
-        int option_index = 0;
-
-        // On vérifie si le premier argument est "search"
-        if (strcmp(argv[1], "search") == 0) {
-            // Recherche avec ou sans pattern
-            if (argc == 2) {
-                cmd_search(NULL);
-            } else {
-                cmd_search(argv[2]);
-            }
-            return 0;
-        }
-
-        // Parsing options getopt_long
-        while ((opt = getopt_long(argc, argv, "p:s:S:F:r::h", long_options, &option_index)) != -1) {
-            switch (opt) {
-                case 'p':
-                    pid = atoi(optarg);
-                    break;
-                case 's':
-                    sockfd = atoi(optarg);
-                    break;
-                case 'S':
-                    send_str = optarg;
-                    break;
-                case 'F':
-                    sendf_file = optarg;
-                    break;
-                case 'r':
-                    // --rec peut avoir argument optionnel
-                    if (optind < argc && argv[optind][0] != '-') {
-                        rec_file = argv[optind];
-                        optind++;
-                    }
-                    else {
-                        rec_file = NULL;
-                    }
-                    break;
-                case 'h':
-                    print_usage();
-                    return 0;
-                default:
-                    print_usage();
-                    return 1;
-            }
-        }
-
-        // Validation arguments
-        int action_count = 0;
-        if (send_str) action_count++;
-        if (sendf_file) action_count++;
-        if (rec_file || (optind > 0 && strcmp(argv[optind-1], "-r") == 0)) action_count++; // rec detected
-        if (action_count == 0) {
-            fprintf(stderr, "Error: Must specify one action among --send, --sendf, or --rec\n");
-            print_usage();
-            return 1;
-        }
-        if (pid <= 0 || sockfd < 0) {
-            fprintf(stderr, "Error: Must specify valid --pid and --socket\n");
-            print_usage();
-            return 1;
-        }
-        // Execute action
-        if (send_str) {
-            ssize_t sent = dup_socket_and_send(pid, sockfd, send_str, strlen(send_str));
-            if (sent >= 0) {
-                printf("Data sent: %zd bytes\n", sent);
-                return 0;
-            }
-            return 1;
-        } else if (sendf_file) {
-            ssize_t sent = dup_socket_and_sendfile(pid, sockfd, sendf_file);
-            if (sent >= 0) {
-                printf("File sent: %zd bytes\n", sent);
-                return 0;
-            }
-            return 1;
-        } else {
-            ssize_t ret = dup_socket_and_recv(pid, sockfd, rec_file);
-            return (ret == 0) ? 0 : 1;
-        }
-    }
-
-    char line[1024];
-    printf("Socket Injector Shell. Type 'help' for commands.\n");
-    while (1) {
-        printf("> ");
-        fflush(stdout);
-        if (!fgets(line, sizeof(line), stdin)) break;
-        trim_newline(line);
-
-        if (strncmp(line, "help", 4) == 0) {
-            cmd_help();
-        } else if (strncmp(line, "search", 6) == 0) {
-            char *arg = line + 6;
-            while (*arg == ' ') arg++;
-            cmd_search(*arg ? arg : NULL);
-        } else if (strncmp(line, "select", 6) == 0) {
-            int idx = -1;
-            if (sscanf(line + 6, "%d", &idx) != 1 || idx < 0 || idx >= entry_count) {
-                printf("Invalid index\n");
-            } else {
-                selected_fd = idx;
-                printf("Selected entry [%d]\n", idx);
-            }
-        } else if (strncmp(line, "sendf", 5) == 0) {
-            if (selected_fd < 0) {
-                printf("No socket selected\n");
-                continue;
-            }
-            char *filename = line + 5;
-            while (*filename == ' ') filename++;
-            if (*filename == 0) {
-                printf("Missing filename\n");
-                continue;
-            }
-            SocketEntry *e = &entries[selected_fd];
-            ssize_t sent = dup_socket_and_sendfile(e->pid, e->fd, filename);
-            if (sent >= 0)
-                printf("File sent: %zd bytes\n", sent);
-        } else if (strncmp(line, "send", 4) == 0) {
-            if (selected_fd < 0) {
-                printf("No socket selected\n");
-                continue;
-            }
-            char *data = line + 4;
-            while (*data == ' ') data++;
-            if (*data == 0) {
-                printf("Missing data to send\n");
-                continue;
-            }
-            SocketEntry *e = &entries[selected_fd];
-            ssize_t sent = dup_socket_and_send(e->pid, e->fd, data, strlen(data));
-            if (sent >= 0)
-                printf("Data sent: %zd bytes\n", sent);
-        } else if (strncmp(line, "rec", 3) == 0) {
-            if (selected_fd < 0) {
-                printf("No socket selected\n");
-                continue;
-            }
-            char *filename = line + 3;
-            while (*filename == ' ') filename++;
-            SocketEntry *e = &entries[selected_fd];
-            if (*filename)
-                dup_socket_and_recv(e->pid, e->fd, filename);
-            else
-                dup_socket_and_recv(e->pid, e->fd, NULL);
-        } else if (strncmp(line, "timeout", 7) == 0) {
-            int t = 0;
-            if (sscanf(line + 7, "%d", &t) != 1 || t <= 0) {
-                printf("Invalid timeout value\n");
-            } else {
-                recv_timeout_sec = t;
-                printf("Timeout set to %d seconds\n", recv_timeout_sec);
-            }
-        } else if (strncmp(line, "quit", 4) == 0) {
-            break;
-        } else if (strlen(line) == 0) {
-            // empty, ignore
-        } else {
-            printf("Unknown command: %s\n", line);
-        }
-    }
-
-    printf("Bye.\n");
-    return 0;
-}
+// ... ici tu mets toutes les fonctions copiées du js5.c sauf main() et le shell interactif ...
+// (tu copies tout de trim_newline à dup_socket_and_recv, y compris les helpers, et adapte les "static" si besoin)

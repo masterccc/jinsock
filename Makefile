@@ -1,12 +1,13 @@
 CC = gcc
-CFLAGS = -Wall
-TARGET = js5
-SRC = js5.c
+CFLAGS = -Wall -Wextra -g
 
-all: $(TARGET)
+all: main
 
-$(TARGET): $(SRC)
-	$(CC) $(CFLAGS) -o $(TARGET) $(SRC)
+main: main.o jinsock.o
+	$(CC) $(CFLAGS) -o js5 main.o jinsock.o
+
+main.o: main.c jinsock.h
+jinsock.o: jinsock.c jinsock.h
 
 clean:
-	rm -f $(TARGET)
+	rm -f *.o main
