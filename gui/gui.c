@@ -129,6 +129,10 @@ void on_send_clicked(GtkButton *button, gpointer user_data) {
 }
 
 static void activate(GtkApplication *app, gpointer user_data) {
+    
+    GtkSettings *settings = gtk_settings_get_default();
+    g_object_set(settings, "gtk-application-prefer-dark-theme", TRUE, NULL);
+
     AppWidgets *widgets = g_new0(AppWidgets, 1);
 
     GtkWidget *window = gtk_application_window_new(app);
@@ -250,7 +254,7 @@ int main(int argc, char **argv) {
     GtkApplication *app;
     int status;
 
-    app = gtk_application_new("com.example.GtkInterface", G_APPLICATION_FLAGS_NONE);
+    app = gtk_application_new("com.example.GtkInterface", G_APPLICATION_DEFAULT_FLAGS);
     g_signal_connect(app, "activate", G_CALLBACK(activate), NULL);
     status = g_application_run(G_APPLICATION(app), argc, argv);
     g_object_unref(app);
